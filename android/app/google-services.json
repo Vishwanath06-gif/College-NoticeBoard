@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "474377253391",
+    "project_id": "collegenoticeboard-9993b",
+    "storage_bucket": "collegenoticeboard-9993b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:474377253391:android:8a35e22f4ce0f935cd297a",
+        "android_client_info": {
+          "package_name": "com.example.fluttermini"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAxj5ZAS2OOnf9Es-YTUE7BQjVNtbdZZE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
