@@ -4,11 +4,11 @@ import '../models/notice_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notice_provider.dart';
 import '../widgets/notice_card.dart';
-import '../widgets/category_chip.dart';
 import 'notice_detail_screen.dart';
 import 'create_notice_screen.dart';
 import 'bookmarks_screen.dart';
 import 'profile_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,7 +19,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _searchController = TextEditingController();
-  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -35,100 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _showFilterSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Filter Options',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Category',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('All'),
-                  selected: true,
-                  onSelected: (_) {},
-                ),
-                ...NoticeCategory.values.map(
-                  (c) => ChoiceChip(
-                    label: Text('${c.icon} ${c.displayName}'),
-                    selected: false,
-                    onSelected: (_) {},
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Date Range',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('All Time'),
-                  selected: true,
-                  onSelected: (_) {},
-                ),
-                ChoiceChip(
-                  label: const Text('Today'),
-                  selected: false,
-                  onSelected: (_) {},
-                ),
-                ChoiceChip(
-                  label: const Text('This Week'),
-                  selected: false,
-                  onSelected: (_) {},
-                ),
-                ChoiceChip(
-                  label: const Text('This Month'),
-                  selected: false,
-                  onSelected: (_) {},
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Apply Filters'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final isAdmin = authProvider.isAdmin;
     final isFaculty = authProvider.isFaculty;
     final noticeProvider = context.watch<NoticeProvider>();
 
@@ -144,54 +52,48 @@ class _HomeScreenState extends State<HomeScreen> {
               const PopupMenuItem(value: 'newest', child: Text('Newest First')),
               const PopupMenuItem(value: 'oldest', child: Text('Oldest First')),
               const PopupMenuItem(value: 'views', child: Text('Most Viewed')),
+              const PopupMenuItem(
+                value: 'priority',
+                child: Text('High Priority'),
+              ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.bookmark_outline),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const BookmarksScreen()),
+          if (authProvider.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.analytics_outlined),
+              tooltip: 'Admin Dashboard',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
-          ),
         ],
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search notices...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      isDense: true,
-                    ),
-                    onChanged: (value) {
-                      context.read<NoticeProvider>().setSearchQuery(value);
-                    },
-                  ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search notices...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () => _showFilterSheet(context),
-                  tooltip: 'Filter',
-                ),
-              ],
+                filled: true,
+                isDense: true,
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          noticeProvider.setSearchQuery('');
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (value) => noticeProvider.setSearchQuery(value),
             ),
           ),
           SizedBox(
@@ -200,20 +102,20 @@ class _HomeScreenState extends State<HomeScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                CategoryChip(
-                  label: 'All',
-                  isSelected:
-                      context.watch<NoticeProvider>().selectedCategory == null,
-                  onTap: () => context.read<NoticeProvider>().setCategory(null),
+                FilterChip(
+                  label: const Text('All'),
+                  selected: noticeProvider.selectedCategory == null,
+                  onSelected: (_) => noticeProvider.setCategory(null),
                 ),
+                const SizedBox(width: 8),
                 ...NoticeCategory.values.map(
-                  (category) => CategoryChip(
-                    label: '${category.icon} ${category.displayName}',
-                    isSelected:
-                        context.watch<NoticeProvider>().selectedCategory ==
-                        category,
-                    onTap: () =>
-                        context.read<NoticeProvider>().setCategory(category),
+                  (category) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text('${category.icon} ${category.displayName}'),
+                      selected: noticeProvider.selectedCategory == category,
+                      onSelected: (_) => noticeProvider.setCategory(category),
+                    ),
                   ),
                 ),
               ],
@@ -222,27 +124,29 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: Consumer<NoticeProvider>(
-              builder: (context, noticeProvider, _) {
-                if (noticeProvider.isLoading) {
+              builder: (context, provider, _) {
+                if (provider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final notices = noticeProvider.notices;
+                final notices = provider.notices;
 
                 if (notices.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.inbox_outlined,
                           size: 64,
-                          color: Colors.grey,
+                          color: Colors.grey[400],
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         Text(
-                          'No notices found',
-                          style: TextStyle(color: Colors.grey),
+                          provider.searchQuery.isNotEmpty
+                              ? 'No notices found for "${provider.searchQuery}"'
+                              : 'No notices available',
+                          style: TextStyle(color: Colors.grey[600]),
                         ),
                       ],
                     ),
@@ -250,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () => noticeProvider.loadNotices(),
+                  onRefresh: () => provider.loadNotices(),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: notices.length,
@@ -273,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: (isAdmin || isFaculty)
+      floatingActionButton: isFaculty
           ? FloatingActionButton.extended(
               onPressed: () => Navigator.push(
                 context,
@@ -284,9 +188,8 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : null,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
+        selectedIndex: 0,
         onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
           if (index == 1) {
             Navigator.push(
               context,

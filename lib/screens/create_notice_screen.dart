@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../models/notice_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notice_provider.dart';
+import '../utils/constants.dart';
 
 class CreateNoticeScreen extends StatefulWidget {
   const CreateNoticeScreen({super.key});
@@ -19,12 +19,15 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   NoticeCategory _selectedCategory = NoticeCategory.general;
+  NoticePriority _priority = NoticePriority.medium;
   DateTime? _expiryDate;
   bool _isPinned = false;
-  int _priority = 1;
   final List<PlatformFile> _attachments = [];
   bool _isLoading = false;
   bool _showPreview = false;
+  TargetAudience _targetAudience = TargetAudience.all;
+  String? _selectedDepartment;
+  String? _selectedYear;
 
   @override
   void dispose() {
@@ -82,10 +85,14 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
         title: _titleController.text.trim(),
         content: _contentController.text.trim(),
         category: _selectedCategory,
+        priority: _priority,
         authorId: user.uid,
         authorName: user.name,
         expiryDate: _expiryDate,
         isPinned: _isPinned,
+        targetAudience: _targetAudience,
+        targetDepartment: _selectedDepartment,
+        targetYear: _selectedYear,
       );
 
       if (mounted) {
@@ -156,9 +163,8 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                         hintText: 'Enter notice title',
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (value == null || value.isEmpty)
                           return 'Please enter a title';
-                        }
                         return null;
                       },
                     ),
@@ -173,21 +179,27 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                       items: NoticeCategory.values.map((category) {
                         return DropdownMenuItem(
                           value: category,
-                          child: Text(
-                            '${category.icon} ${category.displayName}',
+                          child: Row(
+                            children: [
+                              Text(
+                                category.icon,
+                                style: const TextStyle(fontSize: 18),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(category.displayName),
+                            ],
                           ),
                         );
                       }).toList(),
                       onChanged: (value) {
-                        if (value != null) {
+                        if (value != null)
                           setState(() => _selectedCategory = value);
-                        }
                       },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _contentController,
-                      maxLines: 8,
+                      maxLines: 6,
                       decoration: const InputDecoration(
                         labelText: 'Content *',
                         border: OutlineInputBorder(),
@@ -195,12 +207,90 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                         hintText: 'Enter notice content...',
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (value == null || value.isEmpty)
                           return 'Please enter content';
-                        }
                         return null;
                       },
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Target Audience',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SegmentedButton<TargetAudience>(
+                      segments: const [
+                        ButtonSegment(
+                          value: TargetAudience.all,
+                          label: Text('All'),
+                          icon: Icon(Icons.public),
+                        ),
+                        ButtonSegment(
+                          value: TargetAudience.specificDepartment,
+                          label: Text('Department'),
+                          icon: Icon(Icons.school),
+                        ),
+                        ButtonSegment(
+                          value: TargetAudience.specificYear,
+                          label: Text('Year'),
+                          icon: Icon(Icons.groups),
+                        ),
+                      ],
+                      selected: {_targetAudience},
+                      onSelectionChanged: (Set<TargetAudience> selection) {
+                        setState(() => _targetAudience = selection.first);
+                      },
+                    ),
+                    if (_targetAudience ==
+                        TargetAudience.specificDepartment) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _selectedDepartment,
+                        decoration: const InputDecoration(
+                          labelText: 'Select Department',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: AppConstants.departments.map((dept) {
+                          return DropdownMenuItem(
+                            value: dept,
+                            child: Text(dept),
+                          );
+                        }).toList(),
+                        onChanged: (value) =>
+                            setState(() => _selectedDepartment = value),
+                      ),
+                    ],
+                    if (_targetAudience == TargetAudience.specificYear) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _selectedYear,
+                        decoration: const InputDecoration(
+                          labelText: 'Select Year',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: AppConstants.years.map((year) {
+                          return DropdownMenuItem(
+                            value: year,
+                            child: Text(year),
+                          );
+                        }).toList(),
+                        onChanged: (value) =>
+                            setState(() => _selectedYear = value),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -220,6 +310,25 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    const Text(
+                      'Priority',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<NoticePriority>(
+                      segments: NoticePriority.values.map((p) {
+                        return ButtonSegment(
+                          value: p,
+                          label: Text(p.displayName),
+                          icon: Icon(Icons.circle, size: 12, color: p.color),
+                        );
+                      }).toList(),
+                      selected: {_priority},
+                      onSelectionChanged: (Set<NoticePriority> selection) {
+                        setState(() => _priority = selection.first);
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.calendar_today),
@@ -228,7 +337,6 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                             ? 'Expires: ${DateFormat('MMM d, y').format(_expiryDate!)}'
                             : 'Set Expiry Date (Optional)',
                       ),
-                      subtitle: const Text('Leave empty for no expiry'),
                       trailing: _expiryDate != null
                           ? IconButton(
                               icon: const Icon(Icons.clear),
@@ -238,37 +346,8 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                           : null,
                       onTap: _selectExpiryDate,
                     ),
-                    const Divider(),
-                    const Text(
-                      'Priority Level',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 8),
-                    SegmentedButton<int>(
-                      segments: const [
-                        ButtonSegment(
-                          value: 1,
-                          label: Text('Normal'),
-                          icon: Icon(Icons.circle_outlined),
-                        ),
-                        ButtonSegment(
-                          value: 2,
-                          label: Text('Medium'),
-                          icon: Icon(Icons.circle),
-                        ),
-                        ButtonSegment(
-                          value: 3,
-                          label: Text('High'),
-                          icon: Icon(Icons.warning_amber),
-                        ),
-                      ],
-                      selected: {_priority},
-                      onSelectionChanged: (Set<int> selection) {
-                        setState(() => _priority = selection.first);
-                      },
-                    ),
                     if (isAdmin) ...[
-                      const SizedBox(height: 16),
+                      const Divider(),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Pin this notice'),
@@ -299,10 +378,10 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Add files like PDFs, images, or documents (Max 10MB each)',
+                      'Add files like PDFs, images, or documents',
                       style: TextStyle(color: Colors.grey, fontSize: 12),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _pickFiles,
                       icon: const Icon(Icons.attach_file),
@@ -363,6 +442,14 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _selectedCategory.color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Container(
@@ -371,24 +458,22 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _getCategoryColor(
-                        _selectedCategory,
-                      ).withOpacity(0.1),
+                      color: _selectedCategory.color.withAlpha(25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${_selectedCategory.icon} ${_selectedCategory.displayName}',
                       style: TextStyle(
-                        color: _getCategoryColor(_selectedCategory),
-                        fontWeight: FontWeight.w500,
+                        color: _selectedCategory.color,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   const Spacer(),
                   if (_isPinned)
-                    const Icon(Icons.push_pin, color: Colors.orange),
-                  if (_priority == 3)
-                    const Icon(Icons.warning_amber, color: Colors.red),
+                    Icon(Icons.push_pin, color: Colors.orange.shade700),
+                  if (_priority == NoticePriority.high)
+                    Icon(Icons.warning_amber, color: Colors.red.shade700),
                 ],
               ),
               const SizedBox(height: 16),
@@ -400,17 +485,57 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 16,
-                    child: Icon(Icons.person, size: 20),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
+                    child: Text(
+                      context
+                              .read<AuthProvider>()
+                              .user
+                              ?.name
+                              .substring(0, 1)
+                              .toUpperCase() ??
+                          '?',
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Text(context.read<AuthProvider>().user?.name ?? 'Author'),
                 ],
               ),
+              if (_targetAudience != TargetAudience.all) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.group, size: 16, color: Colors.blue),
+                      const SizedBox(width: 6),
+                      Text(
+                        _targetAudience == TargetAudience.specificDepartment
+                            ? _selectedDepartment ?? 'Department'
+                            : '${_selectedYear ?? "Year"} Students',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const Divider(height: 32),
               Text(
                 _contentController.text.isEmpty
@@ -423,7 +548,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -434,21 +559,6 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                         'Expires: ${DateFormat('MMMM d, y').format(_expiryDate!)}',
                       ),
                     ],
-                  ),
-                ),
-              ],
-              if (_attachments.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                const Text(
-                  'Attachments',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                ..._attachments.map(
-                  (f) => ListTile(
-                    leading: Icon(_getFileIcon(f.name)),
-                    title: Text(f.name),
-                    dense: true,
                   ),
                 ),
               ],
@@ -476,21 +586,6 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
         return Icons.text_snippet;
       default:
         return Icons.insert_drive_file;
-    }
-  }
-
-  Color _getCategoryColor(NoticeCategory category) {
-    switch (category) {
-      case NoticeCategory.academic:
-        return Colors.blue;
-      case NoticeCategory.events:
-        return Colors.purple;
-      case NoticeCategory.placements:
-        return Colors.green;
-      case NoticeCategory.general:
-        return Colors.grey;
-      case NoticeCategory.urgent:
-        return Colors.red;
     }
   }
 }

@@ -38,22 +38,32 @@ class NoticeService {
     required String title,
     required String content,
     required NoticeCategory category,
+    NoticePriority priority = NoticePriority.medium,
     required String authorId,
     required String authorName,
     DateTime? expiryDate,
     List<String> attachmentUrls = const [],
     bool isPinned = false,
+    TargetAudience targetAudience = TargetAudience.all,
+    String? targetDepartment,
+    String? targetYear,
+    NoticeStatus status = NoticeStatus.published,
   }) async {
     final notice = Notice(
       id: _uuid.v4(),
       title: title,
       content: content,
       category: category,
+      priority: priority,
       authorId: authorId,
       authorName: authorName,
       expiryDate: expiryDate,
       attachments: attachmentUrls,
       isPinned: isPinned,
+      targetAudience: targetAudience,
+      targetDepartment: targetDepartment,
+      targetYear: targetYear,
+      status: status,
     );
 
     await _firestore
@@ -86,11 +96,29 @@ class NoticeService {
     });
   }
 
+  Future<void> toggleLike(String noticeId, String userId) async {
+    final doc = await _firestore.collection('notices').doc(noticeId).get();
+    if (!doc.exists) return;
+
+    final likedBy = List<String>.from(doc.data()!['likedBy'] ?? []);
+
+    if (likedBy.contains(userId)) {
+      likedBy.remove(userId);
+    } else {
+      likedBy.add(userId);
+    }
+
+    await _firestore.collection('notices').doc(noticeId).update({
+      'likedBy': likedBy,
+      'likeCount': likedBy.length,
+    });
+  }
+
   Future<String> uploadAttachment(File file, String fileName) async {
     final ref = _storage
         .ref()
         .child('attachments')
-        .child(_uuid.v4() + '_' + fileName);
+        .child('${_uuid.v4()}_$fileName');
     await ref.putFile(file);
     return await ref.getDownloadURL();
   }
@@ -99,7 +127,7 @@ class NoticeService {
     return _firestore
         .collection('notices')
         .where('title', isGreaterThanOrEqualTo: query)
-        .where('title', isLessThanOrEqualTo: query + '\uf8ff')
+        .where('title', isLessThanOrEqualTo: '$query\uf8ff')
         .snapshots()
         .map(
           (snapshot) => snapshot.docs

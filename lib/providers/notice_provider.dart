@@ -20,12 +20,17 @@ class NoticeProvider extends ChangeNotifier {
         ? List.from(_notices)
         : List.from(_filteredNotices);
 
+    result = result.where((n) => n.isPublished && !n.isExpired).toList();
+
     switch (_sortOption) {
       case 'oldest':
         result.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         break;
       case 'views':
         result.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+        break;
+      case 'priority':
+        result.sort((a, b) => b.priority.index.compareTo(a.priority.index));
         break;
       default:
         result.sort((a, b) {
@@ -39,15 +44,15 @@ class NoticeProvider extends ChangeNotifier {
   }
 
   List<Notice> get allNotices => _notices;
+  List<Notice> get pinnedNotices =>
+      _notices.where((n) => n.isPinned && n.isPublished).toList();
+  List<Notice> get activeNotices =>
+      _notices.where((n) => !n.isExpired && n.isPublished).toList();
   NoticeCategory? get selectedCategory => _selectedCategory;
   bool get isLoading => _isLoading;
   String? get error => _error;
   String get searchQuery => _searchQuery;
   String get sortOption => _sortOption;
-
-  List<Notice> get pinnedNotices => _notices.where((n) => n.isPinned).toList();
-  List<Notice> get activeNotices =>
-      _notices.where((n) => !n.isExpired).toList();
 
   Future<void> loadNotices() async {
     _isLoading = true;
@@ -92,7 +97,10 @@ class NoticeProvider extends ChangeNotifier {
           _searchQuery.isEmpty ||
           notice.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           notice.content.toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch && !notice.isExpired;
+      return matchesCategory &&
+          matchesSearch &&
+          !notice.isExpired &&
+          notice.isPublished;
     }).toList();
   }
 
@@ -100,11 +108,16 @@ class NoticeProvider extends ChangeNotifier {
     required String title,
     required String content,
     required NoticeCategory category,
+    NoticePriority priority = NoticePriority.medium,
     required String authorId,
     required String authorName,
     DateTime? expiryDate,
     List<String> attachmentUrls = const [],
     bool isPinned = false,
+    TargetAudience targetAudience = TargetAudience.all,
+    String? targetDepartment,
+    String? targetYear,
+    NoticeStatus status = NoticeStatus.published,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -114,11 +127,16 @@ class NoticeProvider extends ChangeNotifier {
         title: title,
         content: content,
         category: category,
+        priority: priority,
         authorId: authorId,
         authorName: authorName,
         expiryDate: expiryDate,
         attachmentUrls: attachmentUrls,
         isPinned: isPinned,
+        targetAudience: targetAudience,
+        targetDepartment: targetDepartment,
+        targetYear: targetYear,
+        status: status,
       );
     } catch (e) {
       _error = e.toString();
@@ -141,6 +159,14 @@ class NoticeProvider extends ChangeNotifier {
     final notice = _notices.firstWhere((n) => n.id == noticeId);
     try {
       await _noticeService.togglePin(noticeId, !notice.isPinned);
+    } catch (e) {
+      _error = e.toString();
+    }
+  }
+
+  Future<void> toggleLike(String noticeId, String userId) async {
+    try {
+      await _noticeService.toggleLike(noticeId, userId);
     } catch (e) {
       _error = e.toString();
     }

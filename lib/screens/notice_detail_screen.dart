@@ -60,6 +60,10 @@ Shared from College Notice Board
         authProvider.user?.bookmarks.contains(widget.notice.id) ?? false;
     final isAdmin = authProvider.isAdmin;
     final isAuthor = authProvider.user?.uid == widget.notice.authorId;
+    final noticeProvider = context.read<NoticeProvider>();
+    final isLiked =
+        authProvider.user != null &&
+        widget.notice.likedBy.contains(authProvider.user!.uid);
 
     return Scaffold(
       appBar: AppBar(
@@ -92,25 +96,7 @@ Shared from College Notice Board
                       title: Text(widget.notice.isPinned ? 'Unpin' : 'Pin'),
                       contentPadding: EdgeInsets.zero,
                     ),
-                    onTap: () {
-                      context.read<NoticeProvider>().togglePin(
-                        widget.notice.id,
-                      );
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: const ListTile(
-                      leading: Icon(Icons.edit_outlined),
-                      title: Text('Edit'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Edit feature coming soon!'),
-                        ),
-                      );
-                    },
+                    onTap: () => noticeProvider.togglePin(widget.notice.id),
                   ),
                 ],
                 PopupMenuItem(
@@ -134,9 +120,7 @@ Shared from College Notice Board
                           ),
                           FilledButton(
                             onPressed: () {
-                              context.read<NoticeProvider>().deleteNotice(
-                                widget.notice.id,
-                              );
+                              noticeProvider.deleteNotice(widget.notice.id);
                               Navigator.pop(ctx);
                               Navigator.pop(context);
                             },
@@ -159,6 +143,14 @@ Shared from College Notice Board
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: widget.notice.category.color,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Container(
@@ -167,17 +159,25 @@ Shared from College Notice Board
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: _getCategoryColor(
-                      widget.notice.category,
-                    ).withAlpha(25),
+                    color: widget.notice.category.color.withAlpha(25),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    '${widget.notice.category.icon} ${widget.notice.category.displayName}',
-                    style: TextStyle(
-                      color: _getCategoryColor(widget.notice.category),
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.notice.category.icon,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.notice.category.displayName,
+                        style: TextStyle(
+                          color: widget.notice.category.color,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Spacer(),
@@ -188,17 +188,24 @@ Shared from College Notice Board
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withAlpha(25),
+                      color: Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.push_pin, size: 14, color: Colors.orange),
-                        SizedBox(width: 4),
+                        Icon(
+                          Icons.push_pin,
+                          size: 14,
+                          color: Colors.orange.shade700,
+                        ),
+                        const SizedBox(width: 4),
                         Text(
                           'Pinned',
-                          style: TextStyle(color: Colors.orange, fontSize: 12),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade700,
+                          ),
                         ),
                       ],
                     ),
@@ -249,6 +256,36 @@ Shared from College Notice Board
                 ),
               ],
             ),
+            if (widget.notice.targetAudience != TargetAudience.all) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.group, size: 16, color: Colors.blue),
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.notice.targetAudience ==
+                              TargetAudience.specificDepartment
+                          ? widget.notice.targetDepartment ??
+                                'Specific Department'
+                          : widget.notice.targetYear != null
+                          ? '${widget.notice.targetYear} Students'
+                          : 'Specific Audience',
+                      style: const TextStyle(fontSize: 12, color: Colors.blue),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const Divider(height: 32),
             Text(
               widget.notice.content,
@@ -259,7 +296,7 @@ Shared from College Notice Board
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withAlpha(25),
+                  color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -268,7 +305,6 @@ Shared from College Notice Board
                     const SizedBox(width: 12),
                     Text(
                       'Expires: ${DateFormat('MMMM d, y').format(widget.notice.expiryDate!)}',
-                      style: TextStyle(color: Colors.grey[700]),
                     ),
                   ],
                 ),
@@ -302,7 +338,6 @@ Shared from College Notice Board
             ],
             const SizedBox(height: 24),
             Card(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -314,7 +349,10 @@ Shared from College Notice Board
                         const SizedBox(height: 4),
                         Text(
                           '${widget.notice.viewCount}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
                         Text(
                           'Views',
@@ -325,13 +363,56 @@ Shared from College Notice Board
                         ),
                       ],
                     ),
+                    InkWell(
+                      onTap: () => noticeProvider.toggleLike(
+                        widget.notice.id,
+                        authProvider.user!.uid,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          children: [
+                            Icon(
+                              isLiked
+                                  ? Icons.thumb_up
+                                  : Icons.thumb_up_outlined,
+                              color: isLiked ? Colors.blue : Colors.grey,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${widget.notice.likeCount}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            Text(
+                              'Likes',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     Column(
                       children: [
-                        const Icon(Icons.bookmark, color: Colors.amber),
+                        Icon(
+                          isBookmarked
+                              ? Icons.bookmark
+                              : Icons.bookmark_outline,
+                          color: isBookmarked ? Colors.amber : Colors.grey,
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                          '${authProvider.user?.bookmarks.where((id) => id == widget.notice.id).length ?? 0}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          '${authProvider.user?.bookmarks.length ?? 0}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
                         Text(
                           'Saved',
@@ -350,21 +431,6 @@ Shared from College Notice Board
         ),
       ),
     );
-  }
-
-  Color _getCategoryColor(NoticeCategory category) {
-    switch (category) {
-      case NoticeCategory.academic:
-        return Colors.blue;
-      case NoticeCategory.events:
-        return Colors.purple;
-      case NoticeCategory.placements:
-        return Colors.green;
-      case NoticeCategory.general:
-        return Colors.grey;
-      case NoticeCategory.urgent:
-        return Colors.red;
-    }
   }
 
   IconData _getFileIcon(String url) {
