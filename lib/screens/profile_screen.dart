@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'my_notices_screen.dart';
+import 'notification_settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -142,7 +143,14 @@ class ProfileScreen extends StatelessWidget {
                   ListTile(
                     leading: const Icon(Icons.notifications_outlined),
                     title: const Text('Notifications'),
-                    trailing: Switch(value: true, onChanged: (value) {}),
+                    subtitle: const Text('Manage push notifications'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationSettingsScreen(),
+                      ),
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(

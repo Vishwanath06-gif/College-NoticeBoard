@@ -1,12 +1,16 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import '../models/notice_model.dart';
 
 class NoticeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final _uuid = const Uuid();
 
   Stream<List<Notice>> getAllNotices() {
@@ -70,7 +74,33 @@ class NoticeService {
         .collection('notices')
         .doc(notice.id)
         .set(notice.toFirestore());
+
+    if (status == NoticeStatus.published) {
+      await _subscribeToTopics(notice);
+    }
+
     return notice;
+  }
+
+  Future<void> _subscribeToTopics(Notice notice) async {
+    await _messaging.subscribeToTopic('all_notices');
+    await _messaging.subscribeToTopic(
+      'cat_${notice.category.name.toLowerCase()}',
+    );
+
+    if (notice.targetAudience == TargetAudience.specificDepartment &&
+        notice.targetDepartment != null) {
+      await _messaging.subscribeToTopic(
+        'dept_${notice.targetDepartment!.toLowerCase().replaceAll(' ', '_')}',
+      );
+    }
+
+    if (notice.targetAudience == TargetAudience.specificYear &&
+        notice.targetYear != null) {
+      await _messaging.subscribeToTopic(
+        'year_${notice.targetYear!.toLowerCase().replaceAll(' ', '_')}',
+      );
+    }
   }
 
   Future<void> updateNotice(
